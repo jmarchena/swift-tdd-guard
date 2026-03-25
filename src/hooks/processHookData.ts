@@ -74,10 +74,10 @@ export async function processHookData(
   }
 
   // PreToolUse — validate the operation
-  const operation: ToolOperation = {
-    tool_name: toolName as ToolOperation["tool_name"],
-    tool_input: toolInput as ToolOperation["tool_input"],
-  };
+  const operation = {
+    tool_name: toolName,
+    tool_input: toolInput,
+  } as ToolOperation;
 
   // Save the current operation
   storage.saveModifications(operation);

@@ -27,14 +27,36 @@ export async function validate(
 async function callModel(config: Config, context: string): Promise<string> {
   // Use Claude Agent SDK
   const { query } = await import("@anthropic-ai/claude-agent-sdk");
-  const result = await query({
-    systemPrompt: SYSTEM_PROMPT,
-    prompt: context,
+  const stream = query({
+    prompt: `${SYSTEM_PROMPT}\n\n${context}`,
     options: {
       model: config.modelVersion,
       maxTurns: 1,
+      systemPrompt: SYSTEM_PROMPT,
+      tools: [],
+      permissionMode: "bypassPermissions" as const,
+      allowDangerouslySkipPermissions: true,
     },
   });
+
+  let result = "";
+  for await (const message of stream) {
+    if (message.type === "assistant" && "message" in message) {
+      const content = (message as { message: { content: unknown[] } }).message
+        .content;
+      for (const block of content) {
+        if (
+          typeof block === "object" &&
+          block !== null &&
+          "type" in block &&
+          (block as { type: string }).type === "text" &&
+          "text" in block
+        ) {
+          result += (block as { text: string }).text;
+        }
+      }
+    }
+  }
   return result;
 }
 
