@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.claude/tdd-guard/data/
+*.tgz
+
+# Swift
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+
+# IDE
+.vscode/
+.idea/
+*.xcworkspace/
