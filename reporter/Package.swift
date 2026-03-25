@@ -13,11 +13,19 @@ let package = Package(
             name: "TDDGuardReporter",
             targets: ["TDDGuardReporter"]
         ),
+        .executable(
+            name: "tdd-guard-swift-test",
+            targets: ["TDDGuardTestParser"]
+        ),
     ],
     targets: [
         .target(
             name: "TDDGuardReporter",
             path: "Sources/TDDGuardReporter"
+        ),
+        .executableTarget(
+            name: "TDDGuardTestParser",
+            path: "Sources/TDDGuardTestParser"
         ),
         .testTarget(
             name: "TDDGuardReporterTests",
