@@ -107,12 +107,16 @@ swift-tdd-guard/
 │           ├── rules.ts          # TDD rules for Swift
 │           ├── file-types.ts     # Test vs implementation detection
 │           └── response.ts       # Expected JSON format
-├── reporter/                     # Swift package — XCTest reporter
+├── reporter/                     # Swift package — test reporters
 │   ├── Package.swift
-│   └── Sources/TDDGuardReporter/
-│       ├── TDDGuardObserver.swift # XCTestObservation implementation
-│       ├── AutoRegister.swift     # Automatic observer registration
-│       └── TestResult.swift       # Codable JSON models
+│   └── Sources/
+│       ├── TDDGuardReporter/      # XCTest in-process observer
+│       │   ├── TDDGuardObserver.swift
+│       │   ├── AutoRegister.swift
+│       │   └── TestResult.swift
+│       └── TDDGuardTestParser/    # CLI parser (XCTest + Swift Testing)
+│           ├── main.swift
+│           └── SwiftTestOutputParser.swift
 └── plugin/
     ├── hooks/hooks.json          # Claude Code hook registration
     └── skills/setup/SKILL.md     # Setup guide
@@ -141,7 +145,7 @@ If the AI validation fails (network error, timeout, SDK issue), the operation is
 | Original Feature | Decision | Reason |
 |---|---|---|
 | Multi-language support (Python, PHP, Go, Rust, JS) | Dropped | Swift-only focus |
-| Multiple reporters (Vitest, Jest, pytest, PHPUnit, Go, Rust, Storybook) | Dropped | Only XCTest needed |
+| Multiple reporters (Vitest, Jest, pytest, PHPUnit, Go, Rust, Storybook) | Replaced | XCTest observer + universal `swift test` output parser |
 | Multiple AI clients (SDK, API, CLI) | Dropped | SDK is the default and most reliable |
 | ESLint / golangci-lint | Replaced | SwiftLint is the Swift standard |
 | Todo tracking | Dropped | Minor feature, not core to TDD enforcement |
@@ -197,9 +201,32 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-### 3. Add the XCTest reporter
+### 3. Set up the test reporter
 
-For Swift Package Manager projects, add to your `Package.swift`:
+swift-tdd-guard supports both **XCTest** and **Swift Testing**. Choose the approach that fits your project:
+
+#### Option A: `tdd-guard-swift-test` CLI (recommended — works with both frameworks)
+
+Build the parser from the reporter package:
+
+```bash
+cd reporter
+swift build -c release
+cp .build/release/tdd-guard-swift-test /usr/local/bin/
+```
+
+Then use it instead of `swift test`:
+
+```bash
+tdd-guard-swift-test              # runs swift test, writes test.json
+swift test 2>&1 | tdd-guard-swift-test --stdin   # parse piped output
+```
+
+This parses both XCTest and Swift Testing console output and writes results to `.claude/tdd-guard/data/test.json`. No changes to your test code required.
+
+#### Option B: XCTest observer (XCTest only, in-process)
+
+For XCTest-only projects, add the reporter as a dependency in `Package.swift`:
 
 ```swift
 dependencies: [
@@ -221,14 +248,31 @@ Then register the observer in your test target:
 ```swift
 import TDDGuardReporter
 
-// Option A: Auto-register (add once to any file in your test target)
+// Auto-register (add once to any file in your test target)
 private let _register: Void = {
     TDDGuardAutoRegister.register()
 }()
-
-// Option B: Manual registration
-// XCTestObservationCenter.shared.addTestObserver(TDDGuardObserver())
 ```
+
+#### How the reporter works
+
+| Approach | XCTest | Swift Testing | Requires code changes |
+|---|---|---|---|
+| `tdd-guard-swift-test` CLI | Yes | Yes | No |
+| `TDDGuardObserver` library | Yes | No | Yes (import + register) |
+
+The CLI parser recognizes both output formats:
+
+```
+# XCTest output
+Test Case '-[CalculatorTests testAdd]' passed (0.001 seconds).
+
+# Swift Testing output
+✔ Test "add returns sum" passed after 0.001 seconds.
+✘ Test "subtract returns difference" failed after 0.002 seconds.
+```
+
+Both are normalized into the same JSON schema in `test.json` for the hook to read.
 
 ### 4. Install SwiftLint (optional)
 
